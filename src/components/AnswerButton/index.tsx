@@ -422,7 +422,7 @@ const AnswerButton: React.FC<AnswerButtonProps> = (
       // また、この回答を、全員に通知する
       await db.ref(`room/${roomID}/currentNewName`).set(answerInput);
       await db.ref(`room/${roomID}/currentCorrectUser`).set(userName);
-      setErrorAboutAnswerInput("登録に成功しました");
+      setErrorAboutAnswerInput("登録に成功しました!");
       // callToastNotification("登録に成功しました", 3000);
       setToastShow(true);
 
@@ -443,6 +443,7 @@ const AnswerButton: React.FC<AnswerButtonProps> = (
           // callToastNotification("正解です!!", 3000);
           setToastShow(true);
 
+          await db.ref(`room/${roomID}/currentNewName`).set(currentNewName);
           const accumulatedPoint = (await db.ref(`room/${roomID}/accumulatedPoint`).get()).val();
           await db.ref(`room/${roomID}/users/${userName}/point`).set(userPoint + accumulatedPoint);
           // また、この回答を、全員に通知する
@@ -625,7 +626,7 @@ const AnswerButton: React.FC<AnswerButtonProps> = (
                 <h5>正解者</h5>
                 {currentCorrectUser}
 
-                <h5>新たにつけられた名前</h5>
+                <h5>名前</h5>
                 {currentNewName}
               </div>
 
