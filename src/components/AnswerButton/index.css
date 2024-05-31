@@ -155,3 +155,21 @@
   /* justify-content: center; */
   /* align-items: center; */
 }
+
+.toast-notification {
+  position: fixed;
+  text-align: center;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10000000;
+  width: 200px;
+  background-color: #eee;
+  color: #000;
+  visibility: hidden;
+  border-radius: 20px;
+}
+
+.toastShow {
+  visibility: visible;
+}

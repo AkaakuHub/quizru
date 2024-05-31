@@ -15,7 +15,7 @@ import { db } from "@/libs/firebase/firebase";
 
 import { Battery1, Battery2, Battery3, Battery_null, PlusIcon } from "@/libs/SVGlibrary";
 import { SVGPropsType } from "@/type";
-
+import { set } from "firebase/database";
 
 declare global {
   interface BatteryManager {
@@ -88,12 +88,12 @@ const AnswerButton: React.FC<AnswerButtonProps> = (
 ) => {
   const [userName, setUserName] = useState<string>("");
   const [loading, setLoading] = useState<boolean>(false);
-  const [errorAboutUserName, setErrorAboutUserName] = useState<string>("");
+  // const [errorAboutAnswerInput, setErrorAboutAnswerInput] = useState<string>("");
   // const [answeringUser, setAnsweringUser] = useState<string>("");
 
   const [role, setRole] = useState<"admin" | "user">("user");
 
-  const [errorAboutNewImageURL, setErrorAboutNewImageURL] = useState<string>("");
+  // const [errorAboutAnswerInput, seterrorAboutAnswerInput] = useState<string>("");
   const [errorAboutAnswerInput, setErrorAboutAnswerInput] = useState<string>("");
 
   // const [isAbleToAnswer, setIsAbleToAnswer] = useState<boolean>(false);
@@ -105,6 +105,10 @@ const AnswerButton: React.FC<AnswerButtonProps> = (
   const [userNameInput, setUserNameInput] = useState<string>("");
 
   const [users, setUsers] = useState<{ [key: string]: { point: number } }>({});
+
+
+  const [toastShow, setToastShow] = useState<boolean>(true);
+
 
   // const handleClick = async () => {
   //   // console.log("ついか開始");
@@ -212,7 +216,8 @@ const AnswerButton: React.FC<AnswerButtonProps> = (
     // そのあと、localStorageに保存しておく
     const result: string = await setUserNameFunc(userNameInput);
     if (result === "error") {
-      setErrorAboutUserName("ユーザーネームが空です");
+      setErrorAboutAnswerInput("ユーザーネームが空です");
+      setToastShow(true);
     } else {
       setUserName(userNameInput);
       localStorage.setItem(`${roomID}_userName`, userNameInput);
@@ -232,15 +237,17 @@ const AnswerButton: React.FC<AnswerButtonProps> = (
     // もし空白なら、先にすすませない
     setIsModalOpen(true);
     if (userNameInput === "") {
-      // setErrorAboutUserName("ユーザーネームが空です");
+      setErrorAboutAnswerInput("ユーザーネームが空です");
+      setToastShow(true);
       return;
     }
     const alreadyUsersFromDB = (await db.ref(`room/${roomID}/users`).get()).val();
     if (alreadyUsersFromDB !== null) {
       if (Object.keys(alreadyUsersFromDB).includes(userNameInput)) {
-        setErrorAboutUserName("すでに存在するユーザーネームですが続行しますか？(グループとしての使用になります)");
+        setErrorAboutAnswerInput("すでに存在するユーザーネームですが続行しますか？(グループとしての使用になります)");
+        setToastShow(true);
       } else {
-        setErrorAboutUserName("");
+        setErrorAboutAnswerInput("");
       }
     }
   }
@@ -249,11 +256,13 @@ const AnswerButton: React.FC<AnswerButtonProps> = (
 
   const newImageURLregisterHandler = async () => {
     if (newImageURLInput === "") {
-      setErrorAboutNewImageURL("URLが空です");
+      setErrorAboutAnswerInput("URLが空です");
+      setToastShow(true);
       return;
     }
     if (!newImageURLInput.startsWith("http")) {
-      setErrorAboutNewImageURL("URLが不正です");
+      setErrorAboutAnswerInput("URLが不正です");
+      setToastShow(true);
       return;
     }
     let imageURLs: { [key: string]: { name: string } } = {};
@@ -264,7 +273,8 @@ const AnswerButton: React.FC<AnswerButtonProps> = (
     }
     // すでに同じのがあったら、追加しない
     if (Object.keys(imageURLs).includes(newImageURLInput)) {
-      setErrorAboutNewImageURL("すでに存在するURLです")
+      setErrorAboutAnswerInput("すでに存在するURLです")
+      setToastShow(true);
       return;
     }
     // base64エンコードして、キーとして使う
@@ -273,7 +283,8 @@ const AnswerButton: React.FC<AnswerButtonProps> = (
       "name": "",
     }
     await db.ref("database").set(imageURLs);
-    setErrorAboutNewImageURL("追加に成功しました！");
+    setErrorAboutAnswerInput("追加に成功しました！");
+    setToastShow(true);
     return;
   }
 
@@ -329,7 +340,7 @@ const AnswerButton: React.FC<AnswerButtonProps> = (
 
   useEffect(() => {
     if (Object.keys(imageURLs).length !== 0 && currentProblemImageURL !== "") {
-      if (imageURLs[currentProblemImageURL].name === "") {
+      if (imageURLs[currentProblemImageURL] && imageURLs[currentProblemImageURL].name === "") {
         setCurrentProblemKind("register");
       } else {
         setCurrentProblemKind("answer");
@@ -371,7 +382,8 @@ const AnswerButton: React.FC<AnswerButtonProps> = (
     // 新しい名前もリセット
     await db.ref(`room/${roomID}/currentNewName`).set("");
     // もし、正解者がいなかったら、累積ポイントを+1する
-    if (currentCorrectUser === "") {
+    // また、登録ターンの場合も、累積ポイントを+1する
+    if (currentCorrectUser === "" || currentProblemKind === "register") {
       const accumulatedPoint = (await db.ref(`room/${roomID}/accumulatedPoint`).get()).val();
       await db.ref(`room/${roomID}/accumulatedPoint`).set(accumulatedPoint + 1);
     } else {
@@ -384,6 +396,8 @@ const AnswerButton: React.FC<AnswerButtonProps> = (
     if (currentProblemKind === "register") {
       if (answerInput === "") {
         setErrorAboutAnswerInput("名前が空です");
+        // callToastNotification("名前が空です", 3000);
+        setToastShow(true);
         return;
       }
       // 他のキャラクターの名前と重複していないか確認
@@ -398,6 +412,8 @@ const AnswerButton: React.FC<AnswerButtonProps> = (
       }
       if (isExist) {
         setErrorAboutAnswerInput("すでに存在する名前です");
+        setToastShow(true);
+        // callToastNotification("すでに存在する名前です", 3000);
         return;
       }
       // なければ、登録
@@ -407,6 +423,8 @@ const AnswerButton: React.FC<AnswerButtonProps> = (
       await db.ref(`room/${roomID}/currentNewName`).set(answerInput);
       await db.ref(`room/${roomID}/currentCorrectUser`).set(userName);
       setErrorAboutAnswerInput("登録に成功しました");
+      // callToastNotification("登録に成功しました", 3000);
+      setToastShow(true);
 
 
     } else if (currentProblemKind === "answer") {
@@ -422,6 +440,8 @@ const AnswerButton: React.FC<AnswerButtonProps> = (
           // 正解
           const userPoint = (await db.ref(`room/${roomID}/users/${userName}/point`).get()).val();
           setErrorAboutAnswerInput("正解です!!");
+          // callToastNotification("正解です!!", 3000);
+          setToastShow(true);
 
           const accumulatedPoint = (await db.ref(`room/${roomID}/accumulatedPoint`).get()).val();
           await db.ref(`room/${roomID}/users/${userName}/point`).set(userPoint + accumulatedPoint);
@@ -430,10 +450,14 @@ const AnswerButton: React.FC<AnswerButtonProps> = (
           await db.ref(`room/${roomID}/currentCorrectUser`).set(userName);
         } else {
           setErrorAboutAnswerInput("不正解です!!");
+          setToastShow(true);
+          // callToastNotification("不正解です!!", 3000);
           // 不正解
         }
       } else {
         setErrorAboutAnswerInput("すでに回答が終了しています");
+        setToastShow(true);
+        // callToastNotification("すでに回答が終了しています", 3000);
       }
     }
   }
@@ -481,9 +505,20 @@ const AnswerButton: React.FC<AnswerButtonProps> = (
   };
 
 
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setToastShow(false);
+    }, 3000);
+
+    return () => clearTimeout(timer);
+  }, []);
 
   return (
     <>
+      {/** toast */}
+      <div className={`toast-notification ${toastShow ? 'toastShow' : ''}`}>
+        <p>{errorAboutAnswerInput}</p>
+      </div>
       {/* <h5>roomID</h5>
       {roomID} */}
       {/* {role === "admin" ? "管理者" : "ユーザー"} */}
@@ -504,7 +539,7 @@ const AnswerButton: React.FC<AnswerButtonProps> = (
               <br />
               {isModalOpen && (
                 <>
-                  {errorAboutUserName !== "" ? <p>err:{errorAboutUserName}</p> : <p>エラーなし</p>}
+                  {errorAboutAnswerInput !== "" ? <p>err:{errorAboutAnswerInput}</p> : <p>エラーなし</p>}
 
                   {userNameInput === "" ? <p>ユーザーネームが空です</p> :
                     (<>
@@ -584,13 +619,14 @@ const AnswerButton: React.FC<AnswerButtonProps> = (
                 </Button>
                 <br />
                 <br />
-                {errorAboutAnswerInput}
+                {/* {errorAboutAnswerInput} */}
                 <br />
-                <h5>正解者</h5>
+
+                {/* <h5>正解者</h5>
                 {currentCorrectUser}
 
                 <h5>新たにつけられた名前だよ</h5>
-                {currentNewName}
+                {currentNewName} */}
               </div>
 
 
@@ -661,7 +697,7 @@ const AnswerButton: React.FC<AnswerButtonProps> = (
           >
             追加
           </Button>
-          {errorAboutNewImageURL}
+          {errorAboutAnswerInput}
         </>
       )}
 
