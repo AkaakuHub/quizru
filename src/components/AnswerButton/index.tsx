@@ -336,8 +336,6 @@ const AnswerButton: React.FC<AnswerButtonProps> = (
     });
   }, []);
 
-
-
   useEffect(() => {
     if (Object.keys(imageURLs).length !== 0 && currentProblemImageURL !== "") {
       if (imageURLs[currentProblemImageURL] && imageURLs[currentProblemImageURL].name === "") {
@@ -353,9 +351,7 @@ const AnswerButton: React.FC<AnswerButtonProps> = (
   useEffect(() => {
     // inputをリセット
     setAnswerInput("");
-    if (userName !== currentCorrectUser) {
-      setErrorAboutAnswerInput("");
-    }
+    setErrorAboutAnswerInput("");
   }, [currentCorrectUser, currentNewName]);
 
 
@@ -383,12 +379,12 @@ const AnswerButton: React.FC<AnswerButtonProps> = (
     await db.ref(`room/${roomID}/currentNewName`).set("");
     // もし、正解者がいなかったら、累積ポイントを+1する
     // また、登録ターンの場合も、累積ポイントを+1する
-    if (currentCorrectUser === "" || currentProblemKind === "register") {
-      const accumulatedPoint = (await db.ref(`room/${roomID}/accumulatedPoint`).get()).val();
-      await db.ref(`room/${roomID}/accumulatedPoint`).set(accumulatedPoint + 1);
-    } else {
-      await db.ref(`room/${roomID}/accumulatedPoint`).set(0);
-    }
+    // if (currentCorrectUser === "" || currentProblemKind === "register") {
+    //   const accumulatedPoint = (await db.ref(`room/${roomID}/accumulatedPoint`).get()).val();
+    //   await db.ref(`room/${roomID}/accumulatedPoint`).set(accumulatedPoint + 1);
+    // } else {
+    //   await db.ref(`room/${roomID}/accumulatedPoint`).set(0);
+    // }
   }
 
   const answerButtonMainHandler = async () => {
@@ -444,6 +440,7 @@ const AnswerButton: React.FC<AnswerButtonProps> = (
           setToastShow(true);
 
           await db.ref(`room/${roomID}/currentNewName`).set(currentNewName);
+
           const accumulatedPoint = (await db.ref(`room/${roomID}/accumulatedPoint`).get()).val();
           await db.ref(`room/${roomID}/users/${userName}/point`).set(userPoint + accumulatedPoint);
           // また、この回答を、全員に通知する
