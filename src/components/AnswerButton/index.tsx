@@ -13,6 +13,47 @@ import { useState, useEffect } from "react";
 // import firebase from "@/libs/firebase/firebase";
 import { db } from "@/libs/firebase/firebase";
 
+import { Battery1, Battery2, Battery3, Battery_null, PlusIcon } from "@/libs/SVGlibrary";
+import { SVGPropsType } from "@/type";
+
+
+declare global {
+  interface BatteryManager {
+    charging: boolean;
+    level: number;
+    chargingTime: number;
+    dischargingTime: number;
+    onchargingchange: ((this: BatteryManager, ev: Event) => any) | null;
+    onchargingtimechange: ((this: BatteryManager, ev: Event) => any) | null;
+    ondischargingtimechange: ((this: BatteryManager, ev: Event) => any) | null;
+    onlevelchange: ((this: BatteryManager, ev: Event) => any) | null;
+  }
+  interface Navigator {
+    getBattery(): Promise<BatteryManager>;
+  }
+}
+
+
+const Battery_charging = (props: SVGPropsType & { level: number }) => {
+  return (
+    <svg width="31" height="17" viewBox="0 0 31 17" fill="none" xmlns="http://www.w3.org/2000/svg" style={props.style ? props.style : undefined} >
+      <path fillRule="evenodd" clipRule="evenodd"
+        d="M3 0C1.34315 0 0 1.34315 0 3V14C0 15.6569 1.34315 17 3 17H26C27.6569 17 29 15.6569 29 14V12.9999C29.0043 13 29.0085 13 29.0128 13C30.1103 13 31 10.9853 31 8.5C31 6.01472 30.1103 4 29.0128 4C29.0085 4 29.0043 4.00003 29 4.00009V3C29 1.34315 27.6569 0 26 0H3Z"
+        fill="black" />
+      <rect x="1" y="1" width="27" height="15" rx="2" fill="white" />
+      <rect x="2" y="2" width={props.level * 25} height="13" rx="2" fill="#00FF75" />
+      <path fillRule="evenodd" clipRule="evenodd" transform="translate(9.5,3)"
+        d="M7.7327 6.48215L9.259 4.89999H4.84259L4.84426 4.8971L4.83344 4.89955L6.58302 0.00388336L6.57927 0L2.2209 4.51786H2.21664L0.699997 6.09H5.10754L5.10587 6.09289L5.11669 6.09044L3.3643 10.994L3.37006 11L7.72843 6.48215H7.7327Z"
+        fill="white"
+        stroke="black"
+        strokeWidth={0.5}
+      />
+    </svg>
+  );
+};
+
+
+
 interface QRCodeProps {
   url: string;
 }
@@ -326,6 +367,13 @@ const AnswerButton: React.FC<AnswerButtonProps> = (
     await db.ref(`room/${roomID}/currentCorrectUser`).set("");
     // 新しい名前もリセット
     await db.ref(`room/${roomID}/currentNewName`).set("");
+    // もし、正解者がいなかったら、累積ポイントを+1する
+    if (currentCorrectUser === "") {
+      const accumulatedPoint = (await db.ref(`room/${roomID}/accumulatedPoint`).get()).val();
+      await db.ref(`room/${roomID}/accumulatedPoint`).set(accumulatedPoint + 1);
+    } else {
+      await db.ref(`room/${roomID}/accumulatedPoint`).set(0);
+    }
   }
 
   const answerButtonMainHandler = async () => {
@@ -368,7 +416,9 @@ const AnswerButton: React.FC<AnswerButtonProps> = (
         if (answerInput === answerByLocal) {
           // 正解
           const userPoint = (await db.ref(`room/${roomID}/users/${userName}/point`).get()).val();
-          await db.ref(`room/${roomID}/users/${userName}/point`).set(userPoint + 1);
+
+          const accumulatedPoint = (await db.ref(`room/${roomID}/accumulatedPoint`).get()).val();
+          await db.ref(`room/${roomID}/users/${userName}/point`).set(userPoint + accumulatedPoint);
           // また、この回答を、全員に通知する
           setErrorAboutAnswerInput("正解です!!");
 
@@ -384,21 +434,59 @@ const AnswerButton: React.FC<AnswerButtonProps> = (
   }
 
 
+
+  const [date, setDate] = useState(new Date());
+  const [battery, setBattery] = useState({ level: 0, charging: false });
+
+
+  useEffect(() => {
+    const timerID = setInterval(() => setDate(new Date()), 1000);
+    try {
+      navigator.getBattery().then((bat) => {
+        setBattery({ level: bat.level, charging: bat.charging });
+        bat.onlevelchange = () => setBattery({ level: bat.level, charging: bat.charging });
+        bat.onchargingchange = () => setBattery({ level: bat.level, charging: bat.charging });
+      });
+    } catch (e) { // iOSなどではnavigator.getBattery()が使えない
+      // console.log(e);
+    }
+    return function cleanup() {
+      clearInterval(timerID);
+    };
+  }, []);
+
+  const ChooseBattery: React.FC = () => {
+    const level: number = battery.level;
+    const isCharging: boolean = battery.charging;
+
+    const iconSize = 40;
+    const iconStyle = { width: `${iconSize}px`, height: `${iconSize}px` };
+
+    if (isCharging) {
+      return <Battery_charging style={iconStyle} level={level} />;
+    } else if (level > 0.5) {
+      return <Battery3 style={iconStyle} />;
+    } else if (level > 0.2) {
+      return <Battery2 style={iconStyle} />;
+    } else if (level > 0) {
+      return <Battery1 style={iconStyle} />;
+    } else { // level === 0
+      return <Battery_null style={iconStyle} />;
+    }
+  };
+
+
+
   return (
     <>
-      <h5>roomID</h5>
-      {roomID}
-      <br />
-
-      <h5>あなたの役割</h5>
-      {role === "admin" ? "管理者" : "ユーザー"}
-
+      {/* <h5>roomID</h5>
+      {roomID} */}
+      {/* {role === "admin" ? "管理者" : "ユーザー"} */}
       {role === "user" && ( // adminは名前不要
         <>
-          {userName === "" && (
+          {userName === "" ? (
             <>
-              <h3>ここをモーダルにする予定</h3>
-              <h5>ユーザーネーム入力</h5>
+              <h3>ユーザーネームを入力してください。</h3>
               <Input type="text" value={userNameInput} onChange={(e) => setUserNameInput(e.target.value)} />
 
               <h5>ユーザーネームを登録</h5>
@@ -425,46 +513,79 @@ const AnswerButton: React.FC<AnswerButtonProps> = (
                   </Button>
                 </>
               )}
+            </>
+          ) : (
+            <>
+              <div className="header">
+                <div className="info-container">
+                  <div className="time-container">
+                    {date.getHours()}:{String(date.getMinutes()).padStart(2, '0')}
+                  </div>
+                  <div className="battery-container">
+                    <ChooseBattery />
+                  </div>
+                </div>
+                <div className="profile-container">
+                  <div className="lv-container">
+                    <p className="mini-title">Pt.</p>
+                    {/* <p className="profile-lv">0</p> */}
+                    <div className="profile-lv input-form"
+                    >
+                      {users.hasOwnProperty(userName) ? users[userName].point : 0}
+                    </div>
+                  </div>
+                  <div className="name-container">
+                    <p className="mini-title">name</p>
+                    <div className="profile-name input-form"
+                    >
+                      {userName}
+                    </div>
+                    {/* <p className="profile-name">{username}</p> */}
+                  </div>
+                </div>
+              </div>
+
+              <br />
+              <br />
+              <br />
+              <br />
+              <br />
+              <div className="answer-content-wrapper"
+              >
+                <h5>正解者</h5>
+                {currentCorrectUser}
+
+                <h5>新たにつけられた名前だよ</h5>
+                {currentNewName}
+
+                <h5>解答欄(入力)</h5>
+                <Input type="text" value={answerInput} onChange={(e) => setAnswerInput(e.target.value)} />
+
+                <Button
+                  onClick={answerButtonMainHandler}
+                  variant="contained"
+                  disabled={currentCorrectUser !== "" || currentNewName !== ""}
+                >
+                  {currentProblemKind === "register" ? "登録" : "回答"}
+                </Button>
+                {errorAboutAnswerInput}
+
+                <h1>問題</h1>
+                {currentProblemImageURL === "" ? "問題がありません" : (
+                  <>
+                    <img className="problem-image"
+                      src={atob(currentProblemImageURL)} alt="" />
+                  </>
+                )}
+              </div>
 
             </>
           )}
 
-          <br />
-          <h5>あなたの名前は{userName}です</h5>
-
-          <h5>正解者</h5>
-          {currentCorrectUser}
-
-          <h5>新たにつけられた名前だよ</h5>
-          {currentNewName}
-
-          <h5>解答欄(入力)</h5>
-          <Input type="text" value={answerInput} onChange={(e) => setAnswerInput(e.target.value)} />
-
-          <Button
-            onClick={answerButtonMainHandler}
-            variant="contained"
-            disabled={currentCorrectUser !== "" || currentNewName !== ""}
-          >
-            {currentProblemKind === "register" ? "登録" : "回答"}
-          </Button>
-          {errorAboutAnswerInput}
         </>
       )}
       {loading && <p>loading...</p>}
 
-      {/* <h5>回答中のユーザー</h5> */}
-      {/* <p>{isAbleToAnswer ? `${answeringUser}が回答中` : "回答できません！"}</p> */}
-      <br />
-      <br />
-      <br />
-
-      {/* 可能かどうか:{isAbleToAnswer ? "回答できます！" : "回答できません！"} */}
-      <br />
-      {/* 回答中のユーザー:{answeringUser} */}
-
-      <br />
-      <br />
       {role === "admin" && (
         <>
           <h5>メンバーを招待する方法</h5>
@@ -494,20 +615,6 @@ const AnswerButton: React.FC<AnswerButtonProps> = (
           {errorAboutNewImageURL}
         </>
       )}
-
-
-
-      <h1>Problem</h1>
-
-
-      {currentProblemImageURL === "" ? "問題がありません" : (
-        <>
-          <h5>現在の問題</h5>
-          <img className="problem-image"
-            src={atob(currentProblemImageURL)} alt="" />
-        </>
-      )}
-
 
       {role === "admin" && (
         <>
