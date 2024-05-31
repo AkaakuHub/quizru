@@ -417,6 +417,7 @@ const AnswerButton: React.FC<AnswerButtonProps> = (
       await db.ref(`database`).set(imageURLs);
       // また、この回答を、全員に通知する
       await db.ref(`room/${roomID}/currentNewName`).set(answerInput);
+
       await db.ref(`room/${roomID}/currentCorrectUser`).set(userName);
       setErrorAboutAnswerInput("登録に成功しました!");
       // callToastNotification("登録に成功しました", 3000);
@@ -439,7 +440,7 @@ const AnswerButton: React.FC<AnswerButtonProps> = (
           // callToastNotification("正解です!!", 3000);
           setToastShow(true);
 
-          await db.ref(`room/${roomID}/currentNewName`).set(currentNewName);
+          await db.ref(`room/${roomID}/currentNewName`).set(answerInput);
 
           const accumulatedPoint = (await db.ref(`room/${roomID}/accumulatedPoint`).get()).val();
           await db.ref(`room/${roomID}/users/${userName}/point`).set(userPoint + accumulatedPoint);
