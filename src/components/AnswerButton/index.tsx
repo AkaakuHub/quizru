@@ -622,11 +622,11 @@ const AnswerButton: React.FC<AnswerButtonProps> = (
                 {/* {errorAboutAnswerInput} */}
                 <br />
 
-                {/* <h5>正解者</h5>
+                <h5>正解者</h5>
                 {currentCorrectUser}
 
-                <h5>新たにつけられた名前だよ</h5>
-                {currentNewName} */}
+                <h5>新たにつけられた名前</h5>
+                {currentNewName}
               </div>
 
 
