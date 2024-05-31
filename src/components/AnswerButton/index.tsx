@@ -342,8 +342,11 @@ const AnswerButton: React.FC<AnswerButtonProps> = (
   useEffect(() => {
     // inputをリセット
     setAnswerInput("");
-    setErrorAboutAnswerInput("");
+    if (userName !== currentCorrectUser) {
+      setErrorAboutAnswerInput("");
+    }
   }, [currentCorrectUser, currentNewName]);
+
 
   useEffect(() => {
     const setRoleByLS = async () => {
@@ -400,9 +403,11 @@ const AnswerButton: React.FC<AnswerButtonProps> = (
       // なければ、登録
       imageURLs[currentProblemImageURL].name = answerInput;
       await db.ref(`database`).set(imageURLs);
-      setErrorAboutAnswerInput("登録に成功しました");
       // また、この回答を、全員に通知する
       await db.ref(`room/${roomID}/currentNewName`).set(answerInput);
+      await db.ref(`room/${roomID}/currentCorrectUser`).set(userName);
+      setErrorAboutAnswerInput("登録に成功しました");
+
 
     } else if (currentProblemKind === "answer") {
       // こんどは回答で、リアルタイム性を重視
@@ -416,11 +421,11 @@ const AnswerButton: React.FC<AnswerButtonProps> = (
         if (answerInput === answerByLocal) {
           // 正解
           const userPoint = (await db.ref(`room/${roomID}/users/${userName}/point`).get()).val();
+          setErrorAboutAnswerInput("正解です!!");
 
           const accumulatedPoint = (await db.ref(`room/${roomID}/accumulatedPoint`).get()).val();
           await db.ref(`room/${roomID}/users/${userName}/point`).set(userPoint + accumulatedPoint);
           // また、この回答を、全員に通知する
-          setErrorAboutAnswerInput("正解です!!");
 
           await db.ref(`room/${roomID}/currentCorrectUser`).set(userName);
         } else {
@@ -552,14 +557,23 @@ const AnswerButton: React.FC<AnswerButtonProps> = (
               <br />
               <div className="answer-content-wrapper"
               >
-                <h5>正解者</h5>
-                {currentCorrectUser}
-
-                <h5>新たにつけられた名前だよ</h5>
-                {currentNewName}
+                <h1>問題</h1>
+                {currentProblemImageURL === "" ? "問題がありません" : (
+                  <>
+                    <img className="problem-image"
+                      src={atob(currentProblemImageURL)} alt="" />
+                  </>
+                )}
 
                 <h5>解答欄(入力)</h5>
-                <Input type="text" value={answerInput} onChange={(e) => setAnswerInput(e.target.value)} />
+                <Input type="text" value={answerInput}
+                  // enterキーでもsubmit
+                  onKeyPress={(e) => {
+                    if (e.key === "Enter") {
+                      answerButtonMainHandler();
+                    }
+                  }}
+                  onChange={(e) => setAnswerInput(e.target.value)} />
 
                 <Button
                   onClick={answerButtonMainHandler}
@@ -568,16 +582,18 @@ const AnswerButton: React.FC<AnswerButtonProps> = (
                 >
                   {currentProblemKind === "register" ? "登録" : "回答"}
                 </Button>
+                <br />
+                <br />
                 {errorAboutAnswerInput}
+                <br />
+                <h5>正解者</h5>
+                {currentCorrectUser}
 
-                <h1>問題</h1>
-                {currentProblemImageURL === "" ? "問題がありません" : (
-                  <>
-                    <img className="problem-image"
-                      src={atob(currentProblemImageURL)} alt="" />
-                  </>
-                )}
+                <h5>新たにつけられた名前だよ</h5>
+                {currentNewName}
               </div>
+
+
 
             </>
           )}
@@ -588,6 +604,39 @@ const AnswerButton: React.FC<AnswerButtonProps> = (
 
       {role === "admin" && (
         <>
+          <h5>問題カードをめくるボタン</h5>
+          <Button variant="contained"
+            onClick={changeProblemImageHandler}>問題カードをめくる</Button>
+
+          <h5>みんなのポイント</h5>
+          {Object.keys(users).length !== 0 ? (
+            <>
+              {Object.keys(users).map((key) => {
+                return (
+                  <div key={key}>
+                    <p>
+                      {key}:{users[key].point}
+                    </p>
+                  </div>
+                );
+              })}
+            </>) : (
+            <>ユーザーなし
+            </>
+          )}
+          <h1>回答</h1>
+          {imageURLs[currentProblemImageURL] === undefined ? "問題がありません" : (
+            <>
+              {imageURLs[currentProblemImageURL].name}
+            </>
+          )}
+          <h1>問題</h1>
+          {currentProblemImageURL === "" ? "問題がありません" : (
+            <>
+              <img className="problem-image"
+                src={atob(currentProblemImageURL)} alt="" />
+            </>
+          )}
           <h5>メンバーを招待する方法</h5>
           <p>以下のQRコードを共有するか、あいことばを入力させてください。</p>
           <QRCode url={`https://quizru.vercel.app/${roomID}`} />
@@ -618,26 +667,7 @@ const AnswerButton: React.FC<AnswerButtonProps> = (
 
       {role === "admin" && (
         <>
-          <h5>問題カードをめくるボタン</h5>
-          <Button variant="contained"
-            onClick={changeProblemImageHandler}>問題カードをめくる</Button>
 
-          <h5>みんなのポイント</h5>
-          {Object.keys(users).length !== 0 ? (
-            <>
-              {Object.keys(users).map((key) => {
-                return (
-                  <div key={key}>
-                    <p>
-                      {key}:{users[key].point}
-                    </p>
-                  </div>
-                );
-              })}
-            </>) : (
-            <>ユーザーなし
-            </>
-          )}
           <h5>すべての画像</h5>
           {Object.keys(imageURLs).length !== 0 ? (
             <>
